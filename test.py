@@ -8,7 +8,10 @@ import time
 Builder.load_string('''
 <CameraClick>:
     orientation: 'vertical'
-
+    Camera:
+        id: camera
+        resolution: (640, 480)
+        play: False
     ToggleButton:
         text: 'Play'
         on_press: camera.play = not camera.play
@@ -21,10 +24,7 @@ Builder.load_string('''
         on_press: root.capture()
 ''')
 """
-Camera:
-    id: camera
-    resolution: (640, 480)
-    play: False
+
 """
 
 class CameraClick(BoxLayout):
@@ -33,9 +33,9 @@ class CameraClick(BoxLayout):
         Function to capture the images and give them the names
         according to their captured time and date.
         '''
-        #camera = self.ids['camera']
+        camera = self.ids['camera']
         timestr = time.strftime("%Y%m%d_%H%M%S")
-        #camera.export_to_png("IMG_{}.png".format(timestr))
+        camera.export_to_png("IMG_{}.png".format(timestr))
         print("Captured")
 
 
