@@ -50,7 +50,7 @@ class Motor:
 
         elif self.motor == 'servo':
             pwm=GPIO.PWM(self.speed, 100)
-            if state = 0:
+            if state == 0:
                 duty = 90 / 18 + 2
                 state = 1
             else:

@@ -4,45 +4,76 @@ from kivy.uix.boxlayout import BoxLayout
 
 import sys
 import time
+from picamera import PiCamera
 
-Builder.load_string('''
-<CameraClick>:
-    orientation: 'vertical'
-    Camera:
-        id: camera
-        resolution: (640, 480)
-        play: False
-    ToggleButton:
-        text: 'Play'
-        on_press: camera.play = not camera.play
-        size_hint_y: None
-        height: '48dp'
-    Button:
-        text: 'Capture'
-        size_hint_y: None
-        height: '48dp'
-        on_press: root.capture()
-''')
-"""
+from gpiozero import LED, Button
+import RPi.GPIO as GPIO
+import smbus2
+from mlx90614 import MLX90614
 
-"""
+class irSensor:
+    def __init__(self,port,address):
+        self.bus = smbus2.SMBus(port)
+        self.address = address
 
-class CameraClick(BoxLayout):
-    def capture(self):
-        '''
-        Function to capture the images and give them the names
-        according to their captured time and date.
-        '''
-        camera = self.ids['camera']
-        timestr = time.strftime("%Y%m%d_%H%M%S")
-        camera.export_to_png("IMG_{}.png".format(timestr))
-        print("Captured")
+    def readObjTemperature(self):
+            data = self.bus.read_word_data(self.address, 0x07)
+            temperature = ((data-(.3*0.6)) * 0.02) - 273.15
+            return temperature
+        
+    def readAmbTemperature(self):
+            data = self.bus.read_word_data(self.address, 0x06)
+            temperature = ((data-(.3*0.6)) * 0.02) - 273.15
+            return temperature
+
+class Motor:
+    def __init__(self, motor,enablePin,inputPin):
+        self.motor = motor
+        self.enablePin = enablePin
+        self.inputPin = inputPin
+        self.state = 0
+        GPIO.setup(self.enablePin,GPIO.OUT)
+        GPIO.setup(self.inputPin,GPIO.OUT)
+
+    def runMotor(self):
+        if self.motor == 'pump':
+            GPIO.output(self.enablePin, True)
+            GPIO.output(self.inputPin, True)            
+            time.sleep(0.5)
+            GPIO.output(self.enablePin, False)
+            GPIO.output(self.inputPin, False)
+
+        elif self.motor == 'servo':
+            pwm=GPIO.PWM(self.speed, 100)
+            if self.state == 0:
+                duty = 90 / 18 + 2
+                self.state = 1
+            else:
+                duty = 0
+                self.state = 0
+            GPIO.output(self.forward, True)
+            pwm.ChangeDutyCycle(duty)
+            time.sleep(1)
+            GPIO.output(self.forward, False)
+            pwm.ChangeDutyCycle(0)
+            pwm.stop()
 
 
-class TestCamera(App):
-
-    def build(self):
-        return CameraClick()
 
 
-TestCamera().run()
+#camera = PiCamera()
+#camera.resolution = (3280, 2464)
+#camera.start_preview()
+
+GPIO.setmode(GPIO.BCM)
+motor = Motor('pump',17,27)
+#motor.runMotor()                                                                                                                
+
+irSensor = irSensor(1,0x5a)
+print(irSensor.readAmbTemperature())
+print(irSensor.readObjTemperature())
+
+#camera warm-up time
+time.sleep(2)
+GPIO.cleanup()
+#camera.capture("image.jpg")
