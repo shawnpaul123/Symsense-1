@@ -91,6 +91,23 @@ class Camera:
         return True
 
 def CovidScreen():
+    '''
+    First screen
+    Automated Covid Safety Screening
+    Please push button to begin
+
+    Second Screen
+    Will now dispense hand sanitizer
+
+    Third
+    Mask Check
+
+    Fourth
+    Temperature check
+
+    Fifth
+    Result
+    '''
     global screen, pump, camera, irSensor, gate
     screen.grid_forget()
     screen = Label(image=image_list[1])
@@ -130,10 +147,6 @@ def CovidScreen():
 
 
 def button_callback(channel):
-    global screen
-    screen.grid_forget()
-    screen = Label(image=image_list[1])
-    screen.grid(row=5,column=0,columnspan=3)
     CovidScreen()
 
 root = Tk()
