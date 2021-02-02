@@ -5,75 +5,130 @@ from kivy.uix.boxlayout import BoxLayout
 import sys
 import time
 from picamera import PiCamera
+from picamera.array import PiRGBArray
+import cv2
 
 from gpiozero import LED, Button
 import RPi.GPIO as GPIO
 import smbus2
-from mlx90614 import MLX90614
+import signal
 
 class irSensor:
+    ObjTemperatureReg = 0x07
+    AmbTemperatureReg = 0x06
     def __init__(self,port,address):
         self.bus = smbus2.SMBus(port)
         self.address = address
 
     def readObjTemperature(self):
-            data = self.bus.read_word_data(self.address, 0x07)
+            data = self.bus.read_word_data(self.address, ObjTemperatureReg)
+            # Input voltage compensation, convert to K, convert to C
             temperature = ((data-(.3*0.6)) * 0.02) - 273.15
             return temperature
-        
+
     def readAmbTemperature(self):
-            data = self.bus.read_word_data(self.address, 0x06)
+            data = self.bus.read_word_data(self.address, AmbTemperatureReg)
+            # Input voltage compensation, convert to K, convert to C
             temperature = ((data-(.3*0.6)) * 0.02) - 273.15
             return temperature
 
 class Motor:
-    def __init__(self, motor,enablePin,inputPin):
+    def __init__(self, motor,*argv):
         self.motor = motor
-        self.enablePin = enablePin
-        self.inputPin = inputPin
+        try:
+            self.enablePin = arg[0]
+            GPIO.setup(self.enablePin,GPIO.OUT)
+            self.inputPin1 = arg[1]
+            GPIO.setup(self.inputPin1,GPIO.OUT)
+            self.inputPin2 = arg[2]
+            GPIO.setup(self.inputPin2,GPIO.OUT)
+        except IndexError:
+            pass
+
         self.state = 0
-        GPIO.setup(self.enablePin,GPIO.OUT)
-        GPIO.setup(self.inputPin,GPIO.OUT)
 
     def runMotor(self):
         if self.motor == 'pump':
+            # Input Pin 2 wired to ground, turn on for 0.5 seconds to dispense
             GPIO.output(self.enablePin, True)
-            GPIO.output(self.inputPin, True)            
+            GPIO.output(self.inputPin1, True)
             time.sleep(0.5)
             GPIO.output(self.enablePin, False)
-            GPIO.output(self.inputPin, False)
+            GPIO.output(self.inputPin1, False)
 
         elif self.motor == 'servo':
-            pwm=GPIO.PWM(self.speed, 100)
+            # Probably can also wire input Pin 2 to ground since we don't want to switch polarity?
+            # Pulse Enable Pin to servo, keeping track of polarity for direction
+            # Frequency 250 (4ms period)
+            pwm=GPIO.PWM(self.enablePin, 250)
+            GPIO.output(self.inputPin1, True)
+
             if self.state == 0:
-                duty = 90 / 18 + 2
+                # might need to test duty cycle and see how the motor rotates between 0 and 90 deg
+                # 2ms Pulse for +90deg or 1ms pulse for -90 deg
+                duty = 50
                 self.state = 1
+
             else:
-                duty = 0
+                #1.5 ms pulse for 0 deg
+                duty = 37.5
                 self.state = 0
-            GPIO.output(self.forward, True)
-            pwm.ChangeDutyCycle(duty)
+
+            pwm.start(duty)
             time.sleep(1)
-            GPIO.output(self.forward, False)
             pwm.ChangeDutyCycle(0)
             pwm.stop()
+            GPIO.output(self.inputPin1, False)
 
 
-
-
+# Camera Code
 #camera = PiCamera()
-#camera.resolution = (3280, 2464)
-#camera.start_preview()
+#camera.resolution = (1920, 1080)
+#camera.framerate = 30
+#rawCapture = PiRGBArray(camera, size=(1920, 1080))
+#camera warm-up time
+#time.sleep(0.1)
+# for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+# 	# grab the raw NumPy array representing the image, then initialize the timestamp
+# 	# and occupied/unoccupied text
+# 	image = frame.array
+#   Pipe image into model here
+# 	# show the frame
+# 	cv2.imshow("Frame", image)
+# 	key = cv2.waitKey(1) & 0xFF
+# 	# clear the stream in preparation for the next frame
+# 	rawCapture.truncate(0)
+# 	# if the `q` key was pressed, break from the loop
+# 	if key == ord("q"):
+# 		break
 
-GPIO.setmode(GPIO.BCM)
-motor = Motor('pump',17,27)
-#motor.runMotor()                                                                                                                
-
+# IR senosr Test
 irSensor = irSensor(1,0x5a)
 print(irSensor.readAmbTemperature())
 print(irSensor.readObjTemperature())
 
-#camera warm-up time
-time.sleep(2)
+# Button test to trigger pump
+GPIO.setmode(GPIO.BCM)
+pump = Motor('pump',17,27)
+#pump.runMotor()
+
+BUTTON_GPIO = 16
+GPIO.setup(BUTTON_GPIO, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+def signal_handler(sig, frame):
+    GPIO.cleanup()
+    sys.exit(0)
+
+def button_pressed_callback(channel):
+    pump.runMotor()
+
+GPIO.setup(BUTTON_GPIO, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.add_event_detect(BUTTON_GPIO, GPIO.FALLING,
+        callback=button_pressed_callback, bouncetime=100)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.pause()
+
+#Open gate if passing
+servo = Motor('servo',22,23)
+#servo.runMotor()
 GPIO.cleanup()
-#camera.capture("image.jpg")
