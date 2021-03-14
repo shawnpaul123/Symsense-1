@@ -1,12 +1,13 @@
 import sys
+sys.path.insert(1, "./lib")
 import os
 import logging
 import traceback
 import time
 from picamera import PiCamera
 from picamera.array import PiRGBArray
-import cv2
-import tensorflow as tf
+#import cv2
+#import tensorflow as tf
 
 from gpiozero import LED, Button
 import RPi.GPIO as GPIO
@@ -38,11 +39,11 @@ class Motor:
     def __init__(self, motor,*argv):
         self.motor = motor
         try:
-            self.enablePin = arg[0]
+            self.enablePin = argv[0]
             GPIO.setup(self.enablePin,GPIO.OUT)
-            self.inputPin1 = arg[1]
+            self.inputPin1 = argv[1]
             GPIO.setup(self.inputPin1,GPIO.OUT)
-            self.inputPin2 = arg[2]
+            self.inputPin2 = argv[2]
             GPIO.setup(self.inputPin2,GPIO.OUT)
         except IndexError:
             pass
@@ -54,7 +55,7 @@ class Motor:
             # Input Pin 2 wired to ground, turn on for 0.5 seconds to dispense
             GPIO.output(self.enablePin, True)
             GPIO.output(self.inputPin1, True)
-            time.sleep(0.5)
+            time.sleep(1)
             GPIO.output(self.enablePin, False)
             GPIO.output(self.inputPin1, False)
 
@@ -67,12 +68,12 @@ class Motor:
             if self.state == 0:
                 # might need to test duty cycle and see how the motor rotates between 0 and 90 deg
                 # 2ms Pulse for +90deg or 1ms pulse for -90 deg
-                duty = 50
+                duty = 100
                 self.state = 1
 
             else:
                 #1.5 ms pulse for 0 deg
-                duty = 37.5
+                duty = 50
                 self.state = 0
             p.ChangeDutyCycle(duty)
 
@@ -81,19 +82,21 @@ class Camera:
         self.camera = PiCamera()
         self.camera.resolution = (1920,1080)
         self.camera.framerate = 30
-    def maskCheck():
-        return True
+    def maskCheck(self):
+        return 'Pass'
 
 
 
 def button_pressed_callback(channel):
-    global draw, epd, pump, irSensor, servo, camera
+    global draw, font24, epd, image, pump, irSensor, servo, camera
+    epd.Clear(0xFF)
     draw.text((0, 40), 'Dispensing Hand Sanitizer', font = font24, fill = 0)
     epd.display(epd.getbuffer(image))
     pump.runMotor()
     draw.text((0, 60), 'Please face camera for Mask Check', font = font24, fill = 0)
     epd.display(epd.getbuffer(image))
     i = 0
+    mask = ''
     while(mask != 'Pass'):
         mask = camera.maskCheck()
         if mask == 'Improper':
@@ -120,7 +123,8 @@ def button_pressed_callback(channel):
         draw.text((0, 100), 'Fail', font = font24, fill = 0)
         epd.display(epd.getbuffer(image))
         time.sleep(5)
-
+        
+    epd.Clear(0xFF)
     draw.text((0, 0), 'SymSense', font = font24, fill = 0)
     draw.text((0, 20), 'Push Button to Begin', font = font24, fill = 0)
     draw.text((0, 40), '', font = font24, fill = 0)
@@ -131,7 +135,8 @@ def button_pressed_callback(channel):
     epd.display(epd.getbuffer(image))
 
 def setup():
-    global pump, irSensor, servo, camera
+    global pump, irSensor, servo, camera, draw, font24, epd, image
+    GPIO.setwarnings(False)
     GPIO.setmode(GPIO.BCM)
     BUTTON_GPIO = 27
     SERVO_GPIO = 22
@@ -144,7 +149,7 @@ def setup():
     camera = Camera()
     GPIO.setup(BUTTON_GPIO, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
     GPIO.add_event_detect(BUTTON_GPIO, GPIO.RISING,
-            callback=button_pressed_callback, bouncetime=100)
+            callback=button_pressed_callback, bouncetime=300)
 
 
     # Screen
