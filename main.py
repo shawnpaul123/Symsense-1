@@ -13,6 +13,7 @@ import imutils
 import numpy as np
 import zlib
 import base64
+import json
 
 
 from gpiozero import LED, Button
@@ -99,7 +100,7 @@ class Camera:
             i+=1
             if i == 30:
                 break
-        frames = np.array(arr) 
+        frames = np.array(arr)
         data = zlib.compress(frames)
         data = base64.b64encode(data)
         data_send = data
@@ -108,6 +109,8 @@ class Camera:
         fdata = np.frombuffer(data2, dtype=np.uint8)
         r = requests.post("http://127.0.0.1:5000/predict", data={'imgb64' : data_send})
         n = r.json()
+        result = json.loads(n)
+        return str(result["message"])
 
 def resetScreen():
     global epd, draw, image, font24
@@ -132,17 +135,17 @@ def button_pressed_callback(channel):
     epd.display(epd.getbuffer(image))
     i = 0
     mask = ''
-    while(mask != 'Pass'):
+    while(mask != 'mask'):
         mask = camera.maskCheck()
-        if mask == 'Improper':
+        if mask == 'not mask':
             draw.text((0, 60), 'Please put mask on properly', font = font24, fill = 0)
             draw.text((0, 80), 'and face camera', font = font24, fill = 0)
             epd.display(epd.getbuffer(image))
-        if i == 3:
+        if i == 2:
             break
         i+=1
     resetScreen()
-    if mask == 'Pass':
+    if mask == 'mask':
         draw.text((0, 80), 'Please place forehead near', font = font24, fill = 0)
         draw.text((0, 100), 'temperature sensor', font = font24, fill = 0)
         epd.display(epd.getbuffer(image))
