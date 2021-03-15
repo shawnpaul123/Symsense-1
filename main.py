@@ -55,7 +55,7 @@ class Motor:
             # Input Pin 2 wired to ground, turn on for 0.5 seconds to dispense
             GPIO.output(self.enablePin, True)
             GPIO.output(self.inputPin1, True)
-            time.sleep(1)
+            time.sleep(2)
             GPIO.output(self.enablePin, False)
             GPIO.output(self.inputPin1, False)
 
@@ -86,13 +86,25 @@ class Camera:
         return 'Pass'
 
 
+def resetScreen():
+    global epd, draw, image, font24
+    epd.Clear(0xFF)
+    draw.text((0, 0), '', font = font24, fill = 0)
+    draw.text((0, 20), '', font = font24, fill = 0)
+    draw.text((0, 40), '', font = font24, fill = 0)
+    draw.text((0, 60), '', font = font24, fill = 0)
+    draw.text((0, 80), '', font = font24, fill = 0)
+    draw.text((0, 100), '', font = font24, fill = 0)
+    # draw image and hold for 5 sec
+    epd.display(epd.getbuffer(image))
 
 def button_pressed_callback(channel):
     global draw, font24, epd, image, pump, irSensor, servo, camera
-    epd.Clear(0xFF)
+    resetScreen()
     draw.text((0, 40), 'Dispensing Hand Sanitizer', font = font24, fill = 0)
     epd.display(epd.getbuffer(image))
     pump.runMotor()
+    resetScreen()
     draw.text((0, 60), 'Please face camera for Mask Check', font = font24, fill = 0)
     epd.display(epd.getbuffer(image))
     i = 0
@@ -100,15 +112,19 @@ def button_pressed_callback(channel):
     while(mask != 'Pass'):
         mask = camera.maskCheck()
         if mask == 'Improper':
-            draw.text((0, 60), 'Please put mask on properly and face camera', font = font24, fill = 0)
+            draw.text((0, 60), 'Please put mask on properly', font = font24, fill = 0)
+            draw.text((0, 80), 'and face camera', font = font24, fill = 0)
             epd.display(epd.getbuffer(image))
         if i == 3:
             break
         i+=1
+    resetScreen()
     if mask == 'Pass':
-        draw.text((0, 80), 'Please place forehead in view of temperature sensor', font = font24, fill = 0)
+        draw.text((0, 80), 'Please place forehead near', font = font24, fill = 0)
+        draw.text((0, 100), 'temperature sensor', font = font24, fill = 0)
         epd.display(epd.getbuffer(image))
         temp = irSensor.readObjTemperature()
+        resetScreen()
         if temp < 38:
             servo.runMotor()
             draw.text((0, 100), 'Pass', font = font24, fill = 0)
@@ -123,7 +139,7 @@ def button_pressed_callback(channel):
         draw.text((0, 100), 'Fail', font = font24, fill = 0)
         epd.display(epd.getbuffer(image))
         time.sleep(5)
-        
+
     epd.Clear(0xFF)
     draw.text((0, 0), 'SymSense', font = font24, fill = 0)
     draw.text((0, 20), 'Push Button to Begin', font = font24, fill = 0)
