@@ -89,6 +89,8 @@ class Camera:
         self.camera = PiCamera()
         self.camera.resolution = (1920,1080)
         self.camera.framerate = 30
+        self.ip_addr = ""   #insert ip address here
+        
     def maskCheck(self):
         rawCapture = PiRGBArray(self.camera, size=(1920, 1080))
         arr = []
@@ -107,7 +109,7 @@ class Camera:
         data2 = base64.b64decode(data)
         data2 = zlib.decompress(data2)
         fdata = np.frombuffer(data2, dtype=np.uint8)
-        r = requests.post("http://127.0.0.1:5000/predict", data={'imgb64' : data_send})
+        r = requests.post(self.ip_addr, data={'imgb64' : data_send})
         n = r.json()
         result = json.loads(n)
         return str(result["message"])
