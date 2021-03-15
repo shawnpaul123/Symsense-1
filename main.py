@@ -6,8 +6,14 @@ import traceback
 import time
 from picamera import PiCamera
 from picamera.array import PiRGBArray
-#import cv2
-#import tensorflow as tf
+import cv2
+import requests
+from PIL import Image
+import imutils
+import numpy as np
+import zlib
+import base64
+
 
 from gpiozero import LED, Button
 import RPi.GPIO as GPIO
@@ -83,8 +89,25 @@ class Camera:
         self.camera.resolution = (1920,1080)
         self.camera.framerate = 30
     def maskCheck(self):
-        return 'Pass'
-
+        rawCapture = PiRGBArray(self.camera, size=(1920, 1080))
+        arr = []
+        i = 0
+        for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+            image = frame.array()
+            image = imutils.resize(image,width=400)
+            arr.append(image)
+            i+=1
+            if i == 30:
+                break
+        frames = np.array(arr) 
+        data = zlib.compress(frames)
+        data = base64.b64encode(data)
+        data_send = data
+        data2 = base64.b64decode(data)
+        data2 = zlib.decompress(data2)
+        fdata = np.frombuffer(data2, dtype=np.uint8)
+        r = requests.post("http://127.0.0.1:5000/predict", data={'imgb64' : data_send})
+        n = r.json()
 
 def resetScreen():
     global epd, draw, image, font24
@@ -195,6 +218,7 @@ def setup():
     epd.display(epd.getbuffer(image))
 
 def main():
+    print('SymSense Start')
     while True:
         time.sleep(1)
 
