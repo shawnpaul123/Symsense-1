@@ -6,7 +6,7 @@ import sys
 
 from picamera import PiCamera
 from picamera.array import PiRGBArray
-import cv2
+#import cv2
 
 from gpiozero import LED, Button
 import RPi.GPIO as GPIO

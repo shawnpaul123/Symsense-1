@@ -18,12 +18,13 @@ def return_image_strings(limit):
 
     #capture = cv2.VideoCapture(0)
     camera = PiCamera()
+    rawCapture = PiRGBArray(camera, size=(1920, 1080))
     camera.resolution = (1920,1080)
     camera.framerate = 30
     arr = []
     counter_frame = 0
     for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
-        image = frame.array()
+        image = np.array(frame)#frame.array()
         image = imutils.resize(image,width=400)
         arr.append(image)
         counter_frame +=1
