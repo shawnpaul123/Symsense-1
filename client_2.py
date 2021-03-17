@@ -5,7 +5,9 @@ import imutils
 import numpy as np
 import zlib
 import base64
-import cv2
+from picamera import PiCamera
+from picamera.array import PiRGBArray
+#import cv2
 
 
 # server url
@@ -14,18 +16,29 @@ URL = "http://127.0.0.1:5000/predict"
 
 def return_image_strings(limit):
 
-    capture = cv2.VideoCapture(0)
+    #capture = cv2.VideoCapture(0)
+    camera = PiCamera()
+    camera.resolution = (1920,1080)
+    camera.framerate = 30
     arr = []
     counter_frame = 0
+    for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+        image = frame.array()
+        image = imutils.resize(image,width=400)
+        arr.append(image)
+        counter_frame +=1
+        if counter_frame == 30:
+            break
+            
+    return arr
+    '''
     while counter_frame <=limit:
         isTrue,frame = capture.read()
         frame = imutils.resize(frame, width=400)      
         arr.append(frame)
         counter_frame+=1
     return arr
-
-
-
+    '''
 
 if __name__ == "__main__":
     #number of arrays
