@@ -10,7 +10,7 @@ from model_script import detection_ml
 import zlib
 import time
 import codecs
-
+from PIL import Image
 dml = detection_ml()
 app = Flask(__name__)
 api = Api(app)
@@ -22,17 +22,22 @@ class Predict(Resource):
 
     def ret_prediction(self,f):
         faces,locs = dml.detect_face(f)
+        print(faces)
         return dml.detect_mask(faces)
 
     def post(self):
         data = parser.parse_args()
         #print(data)
         if data['imgb64'] == "":
+
             return {
                     'data':'',
                     'message':'No file found',
                     'status':'error'
                     }
+
+
+
 
         #img = open(data['imgb64'], 'r').read() # doesn't work
         img = data['imgb64']
@@ -42,12 +47,27 @@ class Predict(Resource):
         data2 = base64.b64decode(data2)
         data2 = zlib.decompress(data2)
         fdata = np.frombuffer(data2, dtype=np.uint8)
+
+        if fdata.size == 0:
+            return {
+                    'data':'',
+                    'message':'empty array found',
+                    'status':'error'
+                    }
+
+
         fdata = fdata.reshape(-1,300,400,3)
         v = time.time()
+        print('fdata_shape',fdata.shape)
+        image = fdata[0]
+        img = Image.fromarray(image, 'RGB')
+        img.show()
         pred_list = [self.ret_prediction(f) for f in fdata]
+        print('length preds',len(pred_list[0]),len(pred_list[1]))
         v2 = time.time()
         time_lag = v2-v       
         pred_list = np.array(pred_list)
+        print(pred_list)
         mask_tot = pred_list[:,:,0].sum()
         not_mask_tot = pred_list[:,:,1].sum()
 
