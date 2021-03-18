@@ -26,6 +26,7 @@ class Predict(Resource):
 
     def post(self):
         data = parser.parse_args()
+
         #print(data)
         if data['imgb64'] == "":
             return {
@@ -36,7 +37,7 @@ class Predict(Resource):
 
         #img = open(data['imgb64'], 'r').read() # doesn't work
         img = data['imgb64']
-
+        print(img)
 
         data2 = img.encode()
         data2 = base64.b64decode(data2)
@@ -46,7 +47,7 @@ class Predict(Resource):
         v = time.time()
         pred_list = [self.ret_prediction(f) for f in fdata]
         v2 = time.time()
-        time_lag = v2-v       
+        time_lag = v2-v
         pred_list = np.array(pred_list)
         mask_tot = pred_list[:,:,0].sum()
         not_mask_tot = pred_list[:,:,1].sum()
@@ -54,9 +55,9 @@ class Predict(Resource):
         val = 'not mask'
 
         if mask_tot > not_mask_tot:
-            val = 'mask' 
+            val = 'mask'
 
-        print(mask_tot,not_mask_tot)     
+        print(mask_tot,not_mask_tot)
 
         if img:
             return json.dumps(
@@ -77,4 +78,4 @@ class Predict(Resource):
 api.add_resource(Predict,'/predict')
 
 if __name__ == '__main__':
-    app.run(debug=True, host = '0.0.0.0', port = 5000, threaded=True)
+    app.run(debug=True, host = '192.168.2.22', port = 5000, threaded=True)
