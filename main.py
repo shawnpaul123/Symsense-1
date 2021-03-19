@@ -4,9 +4,10 @@ import os
 import logging
 import traceback
 import time
+import io
+import cv2
 from picamera import PiCamera
 from picamera.array import PiRGBArray
-import cv2
 import requests
 from PIL import Image
 import imutils
@@ -69,7 +70,7 @@ class Motor:
         elif self.motor == 'servo':
             # Probably can also wire input Pin 2 to ground since we don't want to switch polarity?
             # Pulse Enable Pin to servo, keeping track of polarity for direction
-            # Frequency 250 (4ms period)
+            # Frequency 250arr (4ms period)
             p = GPIO.PWM(self.enablePin, 50) # 50Hz
             p.start(0) # Initialization
             if self.state == 0:
@@ -87,22 +88,32 @@ class Motor:
 class Camera:
     def __init__(self):
         self.camera = PiCamera()
-        self.camera.resolution = (1920,1080)
+        self.camera.resolution = (300,400)
         self.camera.framerate = 30
-        self.ip_addr = ""   #insert ip address here
+        self.ip_addr = "http://192.168.2.22:5000/predict"   #insert ip address here
         
     def maskCheck(self):
-        rawCapture = PiRGBArray(self.camera, size=(1920, 1080))
+        #rawCapture = PiRGBArray(self.camera, size=(1920, 1080))
+        #rint(np.array(rawCapture.array))
         arr = []
-        i = 0
-        for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
-            image = frame.array()
-            image = imutils.resize(image,width=400)
-            arr.append(image)
-            i+=1
-            if i == 30:
-                break
+        i = 0       
+        #self.camera.start_preview()
+        time.sleep(2)
+        output = io.BytesIO()
+        while i < 30:
+            with picamera.array.PiRGBArray(self.camera) as stream:
+                self.camera.capture(stream, format='bgr')
+        # At this point the image is available as stream.array
+                image = stream.array
+                #print(image)
+            #self.camera.capture(output, format ='bgr')
+            #data = np.fromstring(output.getvalue(), dtype=np.uint8)   
+                #image = cv2.imdecode(data, 1)
+                arr.append(image)
+                i += 1       
+                
         frames = np.array(arr)
+        #print(frames.shape)
         data = zlib.compress(frames)
         data = base64.b64encode(data)
         data_send = data
@@ -111,7 +122,9 @@ class Camera:
         fdata = np.frombuffer(data2, dtype=np.uint8)
         r = requests.post(self.ip_addr, data={'imgb64' : data_send})
         n = r.json()
-        result = json.loads(n)
+        print(type(r))
+        result = json.loads(n)#n
+        print(result["message"])
         return str(result["message"])
 
 def resetScreen():
