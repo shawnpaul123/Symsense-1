@@ -55,8 +55,12 @@ class Motor:
             GPIO.setup(self.inputPin2,GPIO.OUT)
         except IndexError:
             pass
-
-        self.state = 0
+        if self.motor == 'servo':
+            self.state = 0
+            self.p = GPIO.PWM(self.enablePin, 50) # 50Hz
+            self.p.start(0) # Initialization
+            self.duty = 12
+            self.p.ChangeDutyCycle(self.duty)
 
     def runMotor(self):
         if self.motor == 'pump':
@@ -68,18 +72,16 @@ class Motor:
             GPIO.output(self.inputPin1, False)
 
         elif self.motor == 'servo':
-            p = GPIO.PWM(self.enablePin, 50) # 50Hz
-            p.start(0) # Initialization
             if self.state == 0:
                 # might need to test duty cycle and see how the motor rotates between 0 and 90 deg
                 # 2ms Pulse for +90deg or 1ms pulse for -90 deg
-                duty = 100
+                self.duty = 7
                 self.state = 1
             else:
                 #1.5 ms pulse for 0 deg
-                duty = 50
+                self.duty = 12
                 self.state = 0
-            p.ChangeDutyCycle(duty)
+            self.p.ChangeDutyCycle(self.duty)
 
 class Camera:
     def __init__(self):
@@ -96,7 +98,6 @@ class Camera:
         arr = []
         i = 0
         rawCapture = PiRGBArray(self.camera, size=(300, 400))
-        stream = np.empty((304,400,3),dtype=np.uint8)
         for frame in self.camera.capture_continuous(rawCapture, format = 'rgb', use_video_port=True):
             image = frame.array
             arr.append(image)
@@ -104,13 +105,14 @@ class Camera:
             i += 1
             if i == 30:
                 break
+        frames = np.array(arr)
         data = zlib.compress(frames)
         data = base64.b64encode(data)
         data_send = data
         data2 = base64.b64decode(data)
         data2 = zlib.decompress(data2)
         fdata = np.frombuffer(data2, dtype=np.uint8)
-        r = requests.post(ip_addr, data={'imgb64' : data_send})
+        r = requests.post(self.ip_addr, data={'imgb64' : data_send})
         n = r.json()
         result = json.loads(n)
         return str(result["message"])
@@ -129,7 +131,7 @@ def resetScreen():
     # draw image and hold for 5 sec
     epd.display(epd.getbuffer(image))
 
-def button_pressed_callback(channel):
+def button_pressed_callback():
     global draw, font24, epd, image, pump, irSensor, servo, camera
     resetScreen()
     draw.text((0, 40), 'Dispensing Hand Sanitizer', font = font24, fill = 0)
@@ -197,8 +199,8 @@ def setup():
     servo = Motor('servo',SERVO_GPIO)
     camera = Camera()
     GPIO.setup(BUTTON_GPIO, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    GPIO.add_event_detect(BUTTON_GPIO, GPIO.RISING,
-            callback=button_pressed_callback, bouncetime=500)
+    #GPIO.add_event_detect(BUTTON_GPIO, GPIO.RISING,
+            #callback=button_pressed_callback, bouncetime=500)
 
 
     # Screen
@@ -230,6 +232,8 @@ def setup():
 def main():
     print('SymSense Start')
     while True:
+        if GPIO.input(27) == GPIO.HIGH:
+            button_pressed_callback()    
         time.sleep(.5)
 
 if __name__ == "__main__":
