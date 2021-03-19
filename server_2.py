@@ -61,8 +61,8 @@ class Predict(Resource):
         v = time.time()
         print('fdata_shape',fdata.shape)
         image = fdata[0]
-        img = Image.fromarray(image)
-        img.show()
+        #img = Image.fromarray(image)
+        #img.show()
         pred_list = [self.ret_prediction(f) for f in fdata]
         print('length preds',len(pred_list[0]),len(pred_list[1]))
         v2 = time.time()
@@ -76,8 +76,22 @@ class Predict(Resource):
 
         if mask_tot > not_mask_tot:
             val = 'mask'
+            noseCascade = cv2.CascadeClassifier('nose.xml')
+            mouthCascade = cv2.CascadeClassifier('mouth.xml')
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            y = 0
+            h = 400
+            x = 0
+            w = 300
+            roi_gray = gray[y:y+h, x:x+w]
+            roi_color = image[y:y+h, x:x+w]
+            nose = noseCascade.detectMultiScale(roi_gray)
+            mouth = mouthCascade.detectMultiScale(roi_gray)
+            if len(nose) > 0 or len(mouth) > 0:
+                val += ' improper'
 
-        print(mask_tot,not_mask_tot)
+        #print(mask_tot,not_mask_tot)
+
 
         if img:
             return json.dumps(
