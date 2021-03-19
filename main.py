@@ -68,9 +68,6 @@ class Motor:
             GPIO.output(self.inputPin1, False)
 
         elif self.motor == 'servo':
-            # Probably can also wire input Pin 2 to ground since we don't want to switch polarity?
-            # Pulse Enable Pin to servo, keeping track of polarity for direction
-            # Frequency 250arr (4ms period)
             p = GPIO.PWM(self.enablePin, 50) # 50Hz
             p.start(0) # Initialization
             if self.state == 0:
@@ -78,7 +75,6 @@ class Motor:
                 # 2ms Pulse for +90deg or 1ms pulse for -90 deg
                 duty = 100
                 self.state = 1
-
             else:
                 #1.5 ms pulse for 0 deg
                 duty = 50
@@ -90,46 +86,40 @@ class Camera:
         self.camera = PiCamera()
         self.camera.resolution = (300,400)
         self.camera.framerate = 30
+        self.camera.rotation = 270
         self.ip_addr = "http://192.168.2.22:5000/predict"   #insert ip address here
-        
+
     def maskCheck(self):
-        #rawCapture = PiRGBArray(self.camera, size=(1920, 1080))
-        #rint(np.array(rawCapture.array))
         arr = []
-        i = 0       
         #self.camera.start_preview()
         time.sleep(2)
-        output = io.BytesIO()
-        while i < 30:
-            with picamera.array.PiRGBArray(self.camera) as stream:
-                self.camera.capture(stream, format='bgr')
-        # At this point the image is available as stream.array
-                image = stream.array
-                #print(image)
-            #self.camera.capture(output, format ='bgr')
-            #data = np.fromstring(output.getvalue(), dtype=np.uint8)   
-                #image = cv2.imdecode(data, 1)
-                arr.append(image)
-                i += 1       
-                
-        frames = np.array(arr)
-        #print(frames.shape)
+        arr = []
+        i = 0
+        rawCapture = PiRGBArray(self.camera, size=(300, 400))
+        stream = np.empty((304,400,3),dtype=np.uint8)
+        for frame in self.camera.capture_continuous(rawCapture, format = 'rgb', use_video_port=True):
+            image = frame.array
+            arr.append(image)
+            rawCapture.truncate(0)
+            i += 1
+            if i == 30:
+                break
         data = zlib.compress(frames)
         data = base64.b64encode(data)
         data_send = data
         data2 = base64.b64decode(data)
         data2 = zlib.decompress(data2)
         fdata = np.frombuffer(data2, dtype=np.uint8)
-        r = requests.post(self.ip_addr, data={'imgb64' : data_send})
+        r = requests.post(ip_addr, data={'imgb64' : data_send})
         n = r.json()
-        print(type(r))
-        result = json.loads(n)#n
-        print(result["message"])
+        result = json.loads(n)
         return str(result["message"])
 
 def resetScreen():
     global epd, draw, image, font24
     epd.Clear(0xFF)
+    image = Image.new('1', (epd.height, epd.width), 255)  # 255: clear the frame
+    draw = ImageDraw.Draw(image)
     draw.text((0, 0), '', font = font24, fill = 0)
     draw.text((0, 20), '', font = font24, fill = 0)
     draw.text((0, 40), '', font = font24, fill = 0)
@@ -146,21 +136,23 @@ def button_pressed_callback(channel):
     epd.display(epd.getbuffer(image))
     pump.runMotor()
     resetScreen()
-    draw.text((0, 60), 'Please face camera for Mask Check', font = font24, fill = 0)
+    draw.text((0, 60), 'Please face camera', font = font24, fill = 0)
+    draw.text((0, 80), 'For mask check', font = font24, fill = 0)
     epd.display(epd.getbuffer(image))
-    i = 0
-    mask = ''
-    while(mask != 'mask'):
+
+    mask = camera.maskCheck()
+    if mask == 'not mask':
+        draw.text((0, 60), 'Please put mask on', font = font24, fill = 0)
+        draw.text((0, 80), 'and face camera', font = font24, fill = 0)
+        epd.display(epd.getbuffer(image))
+        time.sleep(5)
         mask = camera.maskCheck()
-        if mask == 'not mask':
-            draw.text((0, 60), 'Please put mask on properly', font = font24, fill = 0)
-            draw.text((0, 80), 'and face camera', font = font24, fill = 0)
-            epd.display(epd.getbuffer(image))
-        if i == 2:
-            break
-        i+=1
     resetScreen()
-    if mask == 'mask':
+    if 'improper' in mask:
+        draw.text((0, 60), 'Please put mask on properly', font = font24, fill = 0)
+        time.sleep(5)
+        resetScreen()
+    if mask == 'mask' or mask == 'mask improper':
         draw.text((0, 80), 'Please place forehead near', font = font24, fill = 0)
         draw.text((0, 100), 'temperature sensor', font = font24, fill = 0)
         epd.display(epd.getbuffer(image))
@@ -173,7 +165,7 @@ def button_pressed_callback(channel):
             time.sleep(5)
             servo.runMotor()
         else:
-            draw.text((0, 100), 'Fail', font = font24, fill = 0)
+            draw.text((0, 100), 'High Temp', font = font24, fill = 0)
             epd.display(epd.getbuffer(image))
             time.sleep(5)
     else:
@@ -181,7 +173,7 @@ def button_pressed_callback(channel):
         epd.display(epd.getbuffer(image))
         time.sleep(5)
 
-    epd.Clear(0xFF)
+    resetScreen()
     draw.text((0, 0), 'SymSense', font = font24, fill = 0)
     draw.text((0, 20), 'Push Button to Begin', font = font24, fill = 0)
     draw.text((0, 40), '', font = font24, fill = 0)
@@ -206,7 +198,7 @@ def setup():
     camera = Camera()
     GPIO.setup(BUTTON_GPIO, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
     GPIO.add_event_detect(BUTTON_GPIO, GPIO.RISING,
-            callback=button_pressed_callback, bouncetime=300)
+            callback=button_pressed_callback, bouncetime=500)
 
 
     # Screen
@@ -238,7 +230,7 @@ def setup():
 def main():
     print('SymSense Start')
     while True:
-        time.sleep(1)
+        time.sleep(.5)
 
 if __name__ == "__main__":
     setup()
