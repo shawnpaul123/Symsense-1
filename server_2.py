@@ -28,7 +28,7 @@ class Predict(Resource):
     def post(self):
         data = parser.parse_args()
 
-        #print(data)
+        #print(len(data))
         if data['imgb64'] == "":
 
             return {
@@ -42,10 +42,10 @@ class Predict(Resource):
 
         #img = open(data['imgb64'], 'r').read() # doesn't work
         img = data['imgb64']
-        print(img)
+        print(len(img))
 
-        data2 = img.encode()
-        data2 = base64.b64decode(data2)
+        #data2 = img.encode()
+        data2 = base64.b64decode(img)
         data2 = zlib.decompress(data2)
         fdata = np.frombuffer(data2, dtype=np.uint8)
 
@@ -57,18 +57,18 @@ class Predict(Resource):
                     }
 
 
-        fdata = fdata.reshape(-1,300,400,3)
+        fdata = np.reshape(fdata,(30,400,300,3))
         v = time.time()
         print('fdata_shape',fdata.shape)
         image = fdata[0]
-        img = Image.fromarray(image, 'RGB')
+        img = Image.fromarray(image)
         img.show()
         pred_list = [self.ret_prediction(f) for f in fdata]
         print('length preds',len(pred_list[0]),len(pred_list[1]))
         v2 = time.time()
         time_lag = v2-v
         pred_list = np.array(pred_list)
-        print(pred_list)
+        #(pred_list)
         mask_tot = pred_list[:,:,0].sum()
         not_mask_tot = pred_list[:,:,1].sum()
 
