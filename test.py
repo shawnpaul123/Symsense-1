@@ -1,12 +1,8 @@
-from kivy.app import App
-from kivy.lang import Builder
-from kivy.uix.boxlayout import BoxLayout
-
 import sys
 import time
 from picamera import PiCamera
 from picamera.array import PiRGBArray
-import cv2
+#import cv2
 
 from gpiozero import LED, Button
 import RPi.GPIO as GPIO
@@ -14,20 +10,24 @@ import smbus2
 import signal
 
 class irSensor:
+    '''
     ObjTemperatureReg = 0x07
     AmbTemperatureReg = 0x06
+    '''
     def __init__(self,port,address):
         self.bus = smbus2.SMBus(port)
         self.address = address
+        self.ObjTemperatureReg = 0x07
+        self.AmbTemperatureReg = 0x06
 
     def readObjTemperature(self):
-            data = self.bus.read_word_data(self.address, ObjTemperatureReg)
+            data = self.bus.read_word_data(self.address, self.ObjTemperatureReg)
             # Input voltage compensation, convert to K, convert to C
             temperature = ((data-(.3*0.6)) * 0.02) - 273.15
             return temperature
 
     def readAmbTemperature(self):
-            data = self.bus.read_word_data(self.address, AmbTemperatureReg)
+            data = self.bus.read_word_data(self.address, self.AmbTemperatureReg)
             # Input voltage compensation, convert to K, convert to C
             temperature = ((data-(.3*0.6)) * 0.02) - 273.15
             return temperature
@@ -103,12 +103,24 @@ class Motor:
 # 		break
 
 # IR senosr Test
+GPIO.setmode(GPIO.BCM)
 irSensor = irSensor(1,0x5a)
-print(irSensor.readAmbTemperature())
-print(irSensor.readObjTemperature())
+#print(irSensor.readAmbTemperature())
+print('Object Temperature:' + str(irSensor.readObjTemperature()))
+'''
+GPIO.setup(11, GPIO.OUT)
+GPIO.output(11, GPIO.HIGH)
+time.sleep(0.2)
+GPIO.output(11, GPIO.LOW)
+time.sleep(0.005)
+GPIO.output(11, GPIO.HIGH)
+time.sleep(0.2)
+#camera warm-up time
+time.sleep(2)
+
 
 # Button test to trigger pump
-GPIO.setmode(GPIO.BCM)
+
 pump = Motor('pump',17,27)
 #pump.runMotor()
 
@@ -131,4 +143,5 @@ signal.pause()
 #Open gate if passing
 servo = Motor('servo',22,23)
 #servo.runMotor()
-GPIO.cleanup()
+'''
+#GPIO.cleanup()
